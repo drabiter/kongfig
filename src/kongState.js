@@ -25,13 +25,15 @@ const fetchCertificatesForVersion = async ({ version, fetchCertificates }) => {
     return await fetchCertificates();
 };
 
-export default async ({fetchRoutes, fetchPlugins, fetchGlobalPlugins, fetchConsumers, fetchConsumerCredentials, fetchConsumerAcls, fetchUpstreams, fetchTargets, fetchTargetsV11Active, fetchCertificates, fetchKongVersion}) => {
+export default async ({fetchServices, fetchService, fetchRoutes, fetchPlugins, fetchGlobalPlugins, fetchConsumers, fetchConsumerCredentials, fetchConsumerAcls, fetchUpstreams, fetchTargets, fetchTargetsV11Active, fetchCertificates, fetchKongVersion}) => {
     const version = await fetchKongVersion();
+    const services = await fetchServices();
     const routes = await fetchRoutes();
-    const routesWithPlugins = await Promise.all(routes.map(async item => {
+    const routesWithPluginsAndService = await Promise.all(routes.map(async item => {
         const plugins =  await fetchPlugins(item.id);
+        const service =  await fetchService(item.service.id)
 
-        return {...item, plugins};
+        return {...item, plugins, service};
     }));
 
     const consumers = await fetchConsumers();
@@ -74,7 +76,8 @@ export default async ({fetchRoutes, fetchPlugins, fetchGlobalPlugins, fetchConsu
     const certificates = await fetchCertificatesForVersion({ version, fetchCertificates });
 
     return {
-        routes: routesWithPlugins,
+        services,
+        routes: routesWithPluginsAndService,
         consumers: consumersWithCredentialsAndAcls,
         plugins: globalPlugins,
         upstreams: upstreamsWithTargets,

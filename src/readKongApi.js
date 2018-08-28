@@ -9,6 +9,7 @@ export default async (adminApi) => {
         .then(([state, schemas, version]) => {
             return getCurrentStateSelector({
                 _info: { version },
+                services: parseServices(state.services),
                 routes: parseRoutes(state.routes, version),
                 consumers: parseConsumers(state.consumers),
                 plugins: parseGlobalPlugins(state.plugins),
@@ -17,6 +18,30 @@ export default async (adminApi) => {
             });
         })
 };
+
+function parseServices(services) {
+    return services.map(({
+        id, created_at, host, port, connect_timeout, read_timeout, write_timeout,
+        protocol, name, path, retries }) => {
+            return {
+                name,
+                attributes: {
+                    host,
+                    port,
+                    connect_timeout,
+                    read_timeout,
+                    write_timeout,
+                    protocol,
+                    path,
+                    retries
+                },
+                _info: {
+                    id,
+                    created_at
+                }
+            };
+        });
+}
 
 export const parseConsumer = ({ username, custom_id, credentials, acls, ..._info }) => {
     return {
@@ -124,7 +149,9 @@ export const parseRoute = ({
     strip_path, preserve_host, id, created_at, regex_priority}) => {
     return {
         attributes: {
-            service,
+            service: {
+              name: service.name
+            },
             hosts,
             paths,
             methods,

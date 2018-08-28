@@ -19,6 +19,8 @@ export default ({host, https, ignoreConsumers, cache}) => {
 function createApi({ router, getPaginatedJson, ignoreConsumers }) {
     return {
         router,
+        fetchServices: () => getPaginatedJson(router({name: 'services'})),
+        fetchService: serviceId => getPaginatedJson(router({name: 'service', params: {serviceId}})),
         fetchRoutes: () => getPaginatedJson(router({name: 'routes'})),
         fetchGlobalPlugins: () => getPaginatedJson(router({name: 'plugins'})),
         fetchPlugins: routeId => getPaginatedJson(router({name: 'route-plugins', params: {routeId}})),
