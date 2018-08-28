@@ -9,7 +9,7 @@ export default async (adminApi) => {
         .then(([state, schemas, version]) => {
             return getCurrentStateSelector({
                 _info: { version },
-                apis: parseApis(state.apis, version),
+                routes: parseRoutes(state.routes, version),
                 consumers: parseConsumers(state.consumers),
                 plugins: parseGlobalPlugins(state.plugins),
                 upstreams: semVer.gte(version, '0.10.0') ? parseUpstreams(state.upstreams) : undefined,
@@ -58,12 +58,15 @@ function parseCredential([credentialName, credentials]) {
     });
 }
 
-function parseApis(apis, kongVersion) {
+function parseRoutes(routes, kongVersion) {
+    if (semVer.gte(kongVersion, '0.14.0')) {
+        return parseApisV14(routes);
+    }
     if (semVer.gte(kongVersion, '0.10.0')) {
-        return parseApisV10(apis);
+        return parseApisV10(routes);
     }
 
-    return parseApisBeforeV10(apis);
+    return parseApisBeforeV10(routes);
 }
 
 const parseApiPreV10 = ({
@@ -116,6 +119,26 @@ export const parseApiPostV10 = ({
     };
 };
 
+export const parseRoute = ({
+    service, hosts, paths, methods,
+    strip_path, preserve_host, id, created_at, regex_priority}) => {
+    return {
+        attributes: {
+            service,
+            hosts,
+            paths,
+            methods,
+            strip_path,
+            preserve_host,
+            regex_priority
+        },
+        _info: {
+            id,
+            created_at
+        }
+    };
+};
+
 const withParseApiPlugins = (parseApi) => api => {
     const { name, ...rest} = parseApi(api);
 
@@ -130,10 +153,14 @@ function parseApisV10(apis) {
     return apis.map(withParseApiPlugins(parseApiPostV10));
 }
 
+function parseApisV14(apis) {
+    return apis.map(withParseApiPlugins(parseRoute));
+}
+
 export const parsePlugin = ({
     name,
     config,
-    id, api_id, consumer_id, enabled, created_at
+    id, route_id, consumer_id, enabled, created_at
 }) => {
     return {
         name,
@@ -144,7 +171,7 @@ export const parsePlugin = ({
         },
         _info: {
             id,
-            //api_id,
+            //route_id,
             consumer_id,
             created_at
         }
