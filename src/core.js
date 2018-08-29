@@ -12,6 +12,9 @@ import getCurrentStateSelector from './stateSelector';
 import diff from './diff';
 import {
     noop,
+    createService,
+    removeService,
+    updateService,
     createApi,
     removeApi,
     updateApi,
@@ -95,6 +98,7 @@ export default async function execute(config, adminApi, logger = () => {}) {
     const splitConsumersConfig = splitConsumersByRemoved(config.consumers);
 
     const actions = [
+        ...services(config.services),
         ...consumers(splitConsumersConfig.added),
         ...upstreams(config.upstreams),
         ...apis(config.apis),
@@ -113,6 +117,10 @@ export default async function execute(config, adminApi, logger = () => {}) {
     return actions
         .map(await selectWorldStateBind(adminApi, internalLogger))
         .reduce((promise, action) => promise.then(_executeActionOnApi(action, adminApi, internalLogger.logger)), Promise.resolve(''));
+}
+
+export function services(services = []) {
+    return services.reduce((actions, service) => [...actions, _service(service)], []);
 }
 
 export function apis(apis = []) {
@@ -213,11 +221,19 @@ function _bindWorldState(adminApi) {
     }
 }
 
-function _createWorld({apis, consumers, plugins, upstreams, certificates, _info: { version }}) {
+function _createWorld({services, apis, consumers, plugins, upstreams, certificates, _info: { version }}) {
     const world = {
         getVersion: () => version,
 
+        hasService: serviceName => Array.isArray(services) && services.some(service => service.name === serviceName),
         hasApi: apiName => Array.isArray(apis) && apis.some(api => api.name === apiName),
+        getService: serviceName => {
+            const service = services.find(service => service.name === serviceName);
+
+            invariant(service, `Unable to find service ${serviceName}`);
+
+            return service;
+        },
         getApi: apiName => {
             const api = apis.find(api => api.name === apiName);
 
@@ -344,6 +360,10 @@ function _createWorld({apis, consumers, plugins, upstreams, certificates, _info:
             const consumer = world.getConsumer(username);
 
             return consumer.custom_id == custom_id;
+        },
+
+        isServiceUpToDate: (service) => {
+            return diff(service.attributes, world.getService(service.name).attributes).length == 0;
         },
 
         isApiUpToDate: (api) => {
@@ -488,12 +508,33 @@ function extractAclId(acls, groupName) {
     return acls.find(x => x[idName] == groupName);
 }
 
-function _api(api) {
-    validateEnsure(api.ensure);
-    validateApiRequiredAttributes(api);
+function _service(service) {
+    validateEnsure(service.ensure);
+    validateServiceRequiredAttributes(service);
 
-    return migrateApiDefinition(api, (api, world) => {
-        if (api.ensure == 'removed') {
+    return world => {
+        if (service.ensure == 'removed') {
+            return world.hasService(service.name) ? removeService(service.name) : noop({ type: 'noop-service', service });
+        }
+
+        if (world.hasService(service.name)) {
+            if (world.isServiceUpToDate(service)) {
+                return noop({ type: 'noop-service', service });
+            }
+
+            return updateService(service.name, service.attributes);
+        }
+
+        return createService(service.name, service.attributes);
+    }
+}
+
+function _api(route) {
+    validateEnsure(route.ensure);
+    validateRouteRequiredAttributes(route);
+
+    return world => {
+        if (route.ensure == 'removed') {
             return world.hasApi(api.name) ? removeApi(api.name) : noop({ type: 'noop-api', api });
         }
 
@@ -506,7 +547,7 @@ function _api(api) {
         }
 
         return createApi(api.name, api.attributes);
-    });
+    }
 }
 
 function _apiPlugins(api) {
@@ -523,17 +564,35 @@ function validateEnsure(ensure) {
     }
 }
 
-function validateApiRequiredAttributes(api) {
-    if (false == api.hasOwnProperty('name')) {
-        throw Error(`"Api name is required: ${JSON.stringify(api, null, '  ')}`);
+function validateServiceRequiredAttributes(service) {
+  if (false == service.hasOwnProperty("name")) {
+    throw Error(`service has to declare "name" attribute`);
+  }
+  if (false == service.hasOwnProperty("attributes")) {
+    throw Error(`service has to declare "attributes" attribute`);
+  }
+  if (false == service.attributes.hasOwnProperty("host")) {
+    throw Error(`service has to declare "attributes.host" attribute`);
+  }
+}
+
+function validateRouteRequiredAttributes(route) {
+    if (false == route.hasOwnProperty('attributes')) {
+        throw Error(`route has to declare "upstream_url" attribute`);
     }
 
-    if (false == api.hasOwnProperty('attributes')) {
-        throw Error(`"${api.name}" api has to declare "upstream_url" attribute`);
+    if (false == route.attributes.hasOwnProperty('service')) {
+        throw Error(`route has to declare "service" attribute`);
     }
 
-    if (false == api.attributes.hasOwnProperty('upstream_url')) {
-        throw Error(`"${api.name}" api has to declare "upstream_url" attribute`);
+    if (false == route.attributes.service.hasOwnProperty('id')) {
+        throw Error(`route has to declare "service.id" attribute`);
+    }
+
+    if (false == route.attributes.hasOwnProperty('methods') &&
+        false == route.attributes.hasOwnProperty('paths') &&
+        false == route.attributes.hasOwnProperty('hosts')) {
+        throw Error(`route has to declare "hosts/methods/paths" attribute`);
     }
 
 }
