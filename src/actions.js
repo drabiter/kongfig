@@ -37,53 +37,53 @@ export function updateService(name, params) {
     };
 }
 
-export function createApi(name, params) {
+export function createRoute(params, service_id) {
     return {
-        type: 'create-api',
-        endpoint: {name: 'apis'},
+        type: 'create-route',
+        endpoint: {name: 'routes'},
         method: 'POST',
-        body: assign({}, params, {name})
+        body: assign({}, params, {service: {id: service_id}})
     };
 };
 
-export function removeApi(name) {
+export function removeRoute(routeId) {
     return {
-        type: 'remove-api',
-        endpoint: {name: 'api', params: {name}},
+        type: 'remove-route',
+        endpoint: {name: 'route', params: {routeId}},
         method: 'DELETE',
     };
 }
 
-export function updateApi(name, params) {
+export function updateRoute(routeId, params, service_id) {
     return {
-        type: 'update-api',
-        endpoint: {name: 'api', params: {name}},
+        type: 'update-route',
+        endpoint: {name: 'route', params: {routeId}},
         method: 'PATCH',
-        body: params
+        body: assign({}, params, {service: {id: service_id}})
     };
 }
 
-export function addApiPlugin(apiId, pluginName, params) {
+export function addRoutePlugin(routeId, pluginName, params) {
     return {
-        type: 'add-api-plugin',
-        endpoint: {name: 'api-plugins', params: {apiId, pluginName}},
+        type: 'add-route-plugin',
+        endpoint: {name: 'route-plugins', params: {routeId, pluginName}},
         method: 'POST',
-        body: assign({}, params, {name: pluginName})
+        body: assign({}, params, {name: pluginName, route_id: routeId})
     };
 }
 
-export function removeApiPlugin(apiId, pluginId) {
+export function removeRoutePlugin(routeId, pluginId) {
     return {
-        type: 'remove-api-plugin',
-        endpoint: {name: 'api-plugin', params: {apiId, pluginId}},
+        type: 'remove-route-plugin',
+        endpoint: {name: 'route-plugin', params: {routeId, pluginId}},
         method: 'DELETE',
     };
 }
 
-export function updateApiPlugin(apiId, pluginId, params) {
+export function updateRoutePlugin(routeId, pluginId, params) {
     return {
-        type: 'update-api-plugin',
-        endpoint: {name: 'api-plugin', params: {apiId, pluginId}},
+        type: 'update-route-plugin',
+        endpoint: {name: 'route-plugin', params: {routeId, pluginId}},
         method: 'PATCH',
         body: params
     };

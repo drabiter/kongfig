@@ -5,7 +5,7 @@ import assign from 'object-assign';
 import invariant from 'invariant';
 import readKongApi from './readKongApi';
 import {getSchema as getConsumerCredentialSchema} from './consumerCredentials';
-import {normalize as normalizeAttributes} from './utils';
+import {normalize as normalizeAttributes, sameArray, subsetArray} from './utils';
 import { migrateApiDefinition } from './migrate';
 import { logReducer } from './kongStateLocal';
 import getCurrentStateSelector from './stateSelector';
@@ -15,12 +15,12 @@ import {
     createService,
     removeService,
     updateService,
-    createApi,
-    removeApi,
-    updateApi,
-    addApiPlugin,
-    removeApiPlugin,
-    updateApiPlugin,
+    createRoute,
+    removeRoute,
+    updateRoute,
+    addRoutePlugin,
+    removeRoutePlugin,
+    updateRoutePlugin,
     addGlobalPlugin,
     removeGlobalPlugin,
     updateGlobalPlugin,
@@ -101,7 +101,7 @@ export default async function execute(config, adminApi, logger = () => {}) {
         ...services(config.services),
         ...consumers(splitConsumersConfig.added),
         ...upstreams(config.upstreams),
-        ...apis(config.apis),
+        ...routes(config.routes),
         ...globalPlugins(config.plugins),
         ...certificates(config.certificates),
         ...consumers(splitConsumersConfig.removed),
@@ -123,16 +123,16 @@ export function services(services = []) {
     return services.reduce((actions, service) => [...actions, _service(service)], []);
 }
 
-export function apis(apis = []) {
-    return apis.reduce((actions, api) => [...actions, _api(api), ..._apiPlugins(api)], []);
+export function routes(routes = []) {
+    return routes.reduce((actions, route) => [...actions, _route(route), ..._routePlugins(route)], []);
 }
 
 export function globalPlugins(globalPlugins = []) {
     return globalPlugins.reduce((actions, plugin) => [...actions, _globalPlugin(plugin)], []);
 }
 
-export function plugins(apiName, plugins) {
-    return plugins.reduce((actions, plugin) => [...actions, _plugin(apiName, plugin)], []);
+export function plugins(route, plugins) {
+    return plugins.reduce((actions, plugin) => [...actions, _plugin(route, plugin)], []);
 }
 
 export function consumers(consumers = []) {
@@ -221,12 +221,11 @@ function _bindWorldState(adminApi) {
     }
 }
 
-function _createWorld({services, apis, consumers, plugins, upstreams, certificates, _info: { version }}) {
+function _createWorld({services, routes, consumers, plugins, upstreams, certificates, _info: { version }}) {
     const world = {
         getVersion: () => version,
 
         hasService: serviceName => Array.isArray(services) && services.some(service => service.name === serviceName),
-        hasApi: apiName => Array.isArray(apis) && apis.some(api => api.name === apiName),
         getService: serviceName => {
             const service = services.find(service => service.name === serviceName);
 
@@ -234,19 +233,22 @@ function _createWorld({services, apis, consumers, plugins, upstreams, certificat
 
             return service;
         },
-        getApi: apiName => {
-            const api = apis.find(api => api.name === apiName);
+        getExistingRoute: route => {
+            const _route = routes.find(r =>  {
+                return route.attributes.service.name === r.attributes.service.name &&
+                      subsetArray(route.attributes.paths, r.attributes.paths) && 
+                      sameArray(route.attributes.hosts, r.attributes.hosts) && 
+                      sameArray(route.attributes.methods, r.attributes.methods)
+            });
 
-            invariant(api, `Unable to find api ${apiName}`);
-
-            return api;
+            return _route;
         },
-        getApiId: apiName => {
-            const id = world.getApi(apiName)._info.id;
+        getRoute: routeId => {
+            const route = routes.find(route => route._info.id === routeId);
 
-            invariant(id, `API ${apiName} doesn't have an Id`);
+            invariant(route, `Unable to find api ${routeId}`);
 
-            return id;
+            return route;
         },
         getGlobalPlugin: (pluginName, pluginConsumerID) => {
             const plugin = plugins.find(plugin => plugin.api_id === undefined && plugin.name === pluginName && plugin._info.consumer_id == pluginConsumerID);
@@ -255,17 +257,17 @@ function _createWorld({services, apis, consumers, plugins, upstreams, certificat
 
             return plugin;
         },
-        getPlugin: (apiName, pluginName, pluginConsumerID) => {
-            const plugin = world.getApi(apiName).plugins.find(plugin => plugin.name == pluginName && plugin._info.consumer_id == pluginConsumerID);
+        getPlugin: (routeId, pluginName, pluginConsumerID) => {
+            const plugin = world.getRoute(routeId).plugins.find(plugin => plugin.name == pluginName && plugin._info.consumer_id == pluginConsumerID);
 
             invariant(plugin, `Unable to find plugin ${pluginName}`);
 
             return plugin;
         },
-        getPluginId: (apiName, pluginName, pluginConsumerID) => {
-            const pluginId = world.getPlugin(apiName, pluginName, pluginConsumerID)._info.id;
+        getPluginId: (routeId, pluginName, pluginConsumerID) => {
+            const pluginId = world.getPlugin(routeId, pluginName, pluginConsumerID)._info.id;
 
-            invariant(pluginId, `Unable to find plugin id for ${apiName} and ${pluginName}`);
+            invariant(pluginId, `Unable to find plugin id for ${routeId} and ${pluginName}`);
 
             return pluginId;
         },
@@ -276,8 +278,9 @@ function _createWorld({services, apis, consumers, plugins, upstreams, certificat
 
             return globalPluginId;
         },
-        hasPlugin: (apiName, pluginName, pluginConsumerID) => {
-            return Array.isArray(apis) && apis.some(api => api.name === apiName && Array.isArray(api.plugins) && api.plugins.some(plugin => plugin.name == pluginName && plugin._info.consumer_id == pluginConsumerID));
+        hasPlugin: (routeId, pluginName, pluginConsumerID) => {
+            // return Array.isArray(existingRoute.plugins)
+            return Array.isArray(routes) && routes.some(route => route._info.id === routeId && Array.isArray(route.plugins) && route.plugins.some(plugin => plugin.name == pluginName && plugin._info.consumer_id == pluginConsumerID));
         },
         hasGlobalPlugin: (pluginName, pluginConsumerID) => {
             return Array.isArray(plugins) && plugins.some(plugin => plugin.api_id === undefined && plugin.name === pluginName && plugin._info.consumer_id === pluginConsumerID);
@@ -366,17 +369,17 @@ function _createWorld({services, apis, consumers, plugins, upstreams, certificat
             return diff(service.attributes, world.getService(service.name).attributes).length == 0;
         },
 
-        isApiUpToDate: (api) => {
-            return diff(api.attributes, world.getApi(api.name).attributes).length == 0;
+        isRouteUpToDate: (route) => {
+            return diff(route.attributes, world.getExistingRoute(route).attributes).length == 0;
         },
 
-        isApiPluginUpToDate: (apiName, plugin, consumerID) => {
+        isRoutePluginUpToDate: (routeId, plugin, consumerID) => {
             if (false == plugin.hasOwnProperty('attributes')) {
                 // of a plugin has no attributes, and its been added then it is up to date
                 return true;
             }
 
-            let current = world.getPlugin(apiName, plugin.name, consumerID);
+            let current = world.getPlugin(routeId, plugin.name, consumerID);
             let attributes = normalizeAttributes(plugin.attributes);
 
             return isAttributesWithConfigUpToDate(attributes, current.attributes);
@@ -529,29 +532,31 @@ function _service(service) {
     }
 }
 
-function _api(route) {
+function _route(route) {
     validateEnsure(route.ensure);
     validateRouteRequiredAttributes(route);
 
     return world => {
+        const existingRoute = world.getExistingRoute(route);
+
         if (route.ensure == 'removed') {
-            return world.hasApi(api.name) ? removeApi(api.name) : noop({ type: 'noop-api', api });
+            return existingRoute !== undefined ? removeRoute(existingRoute._info.id) : noop({ type: 'noop-route', route });
         }
 
-        if (world.hasApi(api.name)) {
-            if (world.isApiUpToDate(api)) {
-                return noop({ type: 'noop-api', api });
+        if (existingRoute !== undefined) {
+            if (world.isRouteUpToDate(route)) {
+                return noop({ type: 'noop-route', route });
             }
 
-            return updateApi(api.name, api.attributes);
+            return updateRoute(existingRoute._info.id, route.attributes, existingRoute._info.service_id);
         }
 
-        return createApi(api.name, api.attributes);
+        return createRoute(route.attributes, world.getService(route.attributes.service.name)._info.id);
     }
 }
 
-function _apiPlugins(api) {
-    return api.plugins && api.ensure != 'removed' ? plugins(api.name, api.plugins) : [];
+function _routePlugins(route) {
+    return route.plugins && route.ensure != 'removed' ? plugins(route, route.plugins) : [];
 }
 
 function validateEnsure(ensure) {
@@ -566,13 +571,13 @@ function validateEnsure(ensure) {
 
 function validateServiceRequiredAttributes(service) {
   if (false == service.hasOwnProperty("name")) {
-    throw Error(`service has to declare "name" attribute`);
+      throw Error(`service has to declare "name" attribute`);
   }
   if (false == service.hasOwnProperty("attributes")) {
-    throw Error(`service has to declare "attributes" attribute`);
+      throw Error(`service has to declare "attributes" attribute`);
   }
   if (false == service.attributes.hasOwnProperty("host")) {
-    throw Error(`service has to declare "attributes.host" attribute`);
+      throw Error(`service has to declare "attributes.host" attribute`);
   }
 }
 
@@ -585,8 +590,8 @@ function validateRouteRequiredAttributes(route) {
         throw Error(`route has to declare "service" attribute`);
     }
 
-    if (false == route.attributes.service.hasOwnProperty('id')) {
-        throw Error(`route has to declare "service.id" attribute`);
+    if (false == route.attributes.service.hasOwnProperty('name')) {
+        throw Error(`route has to declare "service.name" attribute`);
     }
 
     if (false == route.attributes.hasOwnProperty('methods') &&
@@ -621,30 +626,32 @@ const swapConsumerReference = (world, plugin) => {
     return newPluginDef;
 }
 
-function _plugin(apiName, plugin) {
+function _plugin(route, plugin) {
     validateEnsure(plugin.ensure);
 
     return world => {
+        const existingRoute = world.getExistingRoute(route);
         const finalPlugin = swapConsumerReference(world, plugin);
         const consumerID = finalPlugin.attributes && finalPlugin.attributes.consumer_id;
 
+        // return noop({ type: 'noop-plugin', plugin });
         if (plugin.ensure == 'removed') {
-            if (world.hasPlugin(apiName, plugin.name, consumerID)) {
-                return removeApiPlugin(world.getApiId(apiName), world.getPluginId(apiName, plugin.name, consumerID));
+            if (world.hasPlugin(existingRoute._info.id, plugin.name, consumerID)) {
+                return removeRoutePlugin(existingRoute._info.id, world.getPluginId(existingRoute._info.id, plugin.name, consumerID));
             }
 
             return noop({ type: 'noop-plugin', plugin });
         }
 
-        if (world.hasPlugin(apiName, plugin.name, consumerID)) {
-            if (world.isApiPluginUpToDate(apiName, plugin, consumerID)) {
+        if (world.hasPlugin(existingRoute._info.id, plugin.name, consumerID)) {
+            if (world.isRoutePluginUpToDate(existingRoute._info.id, plugin, consumerID)) {
                 return noop({ type: 'noop-plugin', plugin });
             }
 
-            return updateApiPlugin(world.getApiId(apiName), world.getPluginId(apiName, plugin.name, consumerID), finalPlugin.attributes);
+            return updateRoutePlugin(existingRoute._info.id, world.getPluginId(existingRoute._info.id, plugin.name, consumerID), finalPlugin.attributes);
         }
 
-        return addApiPlugin(world.getApiId(apiName), plugin.name, finalPlugin.attributes);
+        return addRoutePlugin(existingRoute._info.id, plugin.name, finalPlugin.attributes);
     }
 }
 

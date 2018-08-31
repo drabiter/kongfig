@@ -145,12 +145,13 @@ export const parseApiPostV10 = ({
 };
 
 export const parseRoute = ({
-    service, hosts, paths, methods,
+    service, hosts, paths, methods, plugins,
     strip_path, preserve_host, id, created_at, regex_priority}) => {
     return {
+        plugins,
         attributes: {
             service: {
-              name: service.name
+                name: service.name
             },
             hosts,
             paths,
@@ -161,15 +162,16 @@ export const parseRoute = ({
         },
         _info: {
             id,
-            created_at
+            created_at,
+            service_id: service.id
         }
     };
 };
 
-const withParseApiPlugins = (parseApi) => api => {
-    const { name, ...rest} = parseApi(api);
+const withParseApiPlugins = (parseApi) => route => {
+    const { ...rest } = parseApi(route);
 
-    return { name, plugins: parseApiPlugins(api.plugins), ...rest };
+    return { ...rest, plugins: parseApiPlugins(route.plugins) };
 };
 
 function parseApisBeforeV10(apis) {
@@ -187,7 +189,7 @@ function parseApisV14(apis) {
 export const parsePlugin = ({
     name,
     config,
-    id, route_id, consumer_id, enabled, created_at
+    id, route_id, consumer_id, enabled
 }) => {
     return {
         name,
@@ -198,9 +200,8 @@ export const parsePlugin = ({
         },
         _info: {
             id,
-            //route_id,
-            consumer_id,
-            created_at
+            route_id,
+            consumer_id
         }
     };
 };
