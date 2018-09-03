@@ -66,8 +66,8 @@ export function subsetArray(value = [], other = []) {
     return other.every(o => value.includes(o));
 }
 
-export function sameArray(value = [], other = []) {
-    if (value === null && other === null) return true;
+export function sameArray(value, other) {
+    if (value == null && other == null) return true;
 
     // Get the value type
     var type = Object.prototype.toString.call(value);
