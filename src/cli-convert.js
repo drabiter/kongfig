@@ -80,13 +80,23 @@ output.services = config.services;
 output.routes = config.apis.map(api => {
   let _name = undefined;
   if (api.attributes.upstream_url.includes('hermes')) _name = 'hermes';
-  if (api.attributes.upstream_url.includes('phoenix')) _name = 'phoenix';
-  if (api.attributes.upstream_url.includes('papi')) _name = 'papi';
-  if (api.attributes.upstream_url.includes('payment-api')) _name = 'papi';
-  if (api.attributes.upstream_url.includes('promo-app')) _name = 'promo-app';
+  if (api.attributes.upstream_url.includes('phoenix')) {
+    _name = (api.attributes.upstream_url.includes('ping'))? 'phoenix-ping' : 'phoenix';
+  }
+  if (api.attributes.upstream_url.includes('papi')) {
+    _name = (api.attributes.upstream_url.includes('ping'))? 'papi-ping' : 'papi';
+  }
+  if (api.attributes.upstream_url.includes('payment-api')) {
+    _name = (api.attributes.upstream_url.includes('ping'))? 'papi-ping' : 'papi';
+  }
+  if (api.attributes.upstream_url.includes('promo')) {
+    _name = (api.attributes.upstream_url.includes('ping'))? 'promo-app-ping' : 'promo-app';
+  }
+  if (api.attributes.upstream_url.includes('saudagar')) {
+    _name = (api.attributes.upstream_url.includes('ping'))? 'saudagar-ping' : 'saudagar';
+  }
   if (api.attributes.upstream_url.includes('pato')) _name = 'pato';
   if (api.attributes.upstream_url.includes('transcript')) _name = 'transcript';
-  if (api.attributes.upstream_url.includes('saudagar')) _name = 'saudagar';
   if (api.attributes.upstream_url.includes('rhea-api')) _name = 'rhea-api';
   if (api.attributes.upstream_url.includes('paycon')) _name = 'paycon';
   if (api.attributes.upstream_url.includes('athena-ui')) _name = 'iris-ui';
@@ -242,6 +252,7 @@ output.routes = config.apis.map(api => {
       preserve_host: api.attributes.preserve_host,
       paths: [api.attributes.request_path].filter(p => p != null),
       hosts: [api.attributes.request_host].filter(h => h != null),
+      methods: [api.attributes.request_host].filter(h => h != null),
       strip_path: api.attributes.strip_request_path
     }
   };
