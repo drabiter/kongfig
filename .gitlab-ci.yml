@@ -21,6 +21,5 @@ job_upload_master:
         - master
     script:
         - docker login --username=$DOCKER_USER --password=$DOCKER_PASS
-        - docker tag midtrans/kongou:$IMAGE_NAME
         - docker push midtrans/kongou:$IMAGE_NAME
 
