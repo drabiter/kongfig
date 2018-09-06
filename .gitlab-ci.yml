@@ -1,0 +1,26 @@
+image: midtrans/ci:docker
+
+before_script:
+    - set -x
+    - export IMAGE_NAME=$CI_BUILD_REF_NAME-fork-${CI_BUILD_REF:0:8}
+
+stages:
+    - dockerize
+    - upload_docker
+
+job_dockerize:
+    image: midtrans/ci:docker
+    stage: dockerize
+    script:
+        - docker build -t midtrans/kongou:$IMAGE_NAME ./
+
+job_upload_master:
+    image: midtrans/ci:docker
+    stage: upload_docker
+    only:
+        - master
+    script:
+        - docker login --username=$DOCKER_USER --password=$DOCKER_PASS
+        - docker tag midtrans/kongou:$IMAGE_NAME
+        - docker push midtrans/kongou:$IMAGE_NAME
+
