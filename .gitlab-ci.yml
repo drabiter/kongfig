@@ -2,7 +2,7 @@ image: midtrans/ci:docker
 
 before_script:
     - set -x
-    - export IMAGE_NAME=$CI_BUILD_REF_NAME-fork-${CI_BUILD_REF:0:8}
+    - export IMAGE_NAME=kongfig-fork-$CI_BUILD_REF_NAME-${CI_BUILD_REF:0:8}
 
 stages:
     - dockerize
