@@ -79,7 +79,10 @@ output.plugins = config.plugins.map(p => {
 output.services = config.services;
 output.routes = config.apis.map(api => {
   let _name = undefined;
-  if (api.attributes.upstream_url.includes('hermes')) _name = 'hermes';
+  if (api.attributes.upstream_url.includes('hermes')) {
+    _name = (api.attributes.upstream_url.includes('merchants'))? 'hermes-merchant' : 'hermes';
+    _name = (api.attributes.upstream_url.includes('api'))? 'hermes-api' : 'hermes';
+  }
   if (api.attributes.upstream_url.includes('phoenix')) {
     _name = (api.attributes.upstream_url.includes('ping'))? 'phoenix-ping' : 'phoenix';
   }
@@ -96,12 +99,24 @@ output.routes = config.apis.map(api => {
     _name = (api.attributes.upstream_url.includes('ping'))? 'saudagar-ping' : 'saudagar';
   }
   if (api.attributes.upstream_url.includes('pato')) _name = 'pato';
-  if (api.attributes.upstream_url.includes('transcript')) _name = 'transcript';
-  if (api.attributes.upstream_url.includes('rhea-api')) _name = 'rhea-api';
+  if (api.attributes.upstream_url.includes('transcript')) {
+    _name = (api.attributes.upstream_url.includes('3ds'))? 'transcript-3ds' : 'transcript';
+  }
+  if (api.attributes.upstream_url.includes('rhea-api')) {
+    _name = (api.attributes.upstream_url.includes('public'))? 'rhea-api-public' : 'rhea-api';
+    _name = (api.attributes.upstream_url.includes('transactions'))? 'rhea-transaction' : 'rhea-api';
+  }
   if (api.attributes.upstream_url.includes('paycon')) _name = 'paycon';
-  if (api.attributes.upstream_url.includes('athena-ui')) _name = 'iris-ui';
-  if (api.attributes.upstream_url.includes('wallstreet')) _name = 'wallstreet';
-  if (api.attributes.upstream_url.includes('nexus')) _name = 'nexus';
+  if (api.attributes.upstream_url.includes('athena-ui')) {
+    _name = (api.attributes.upstream_url.includes('account'))? 'iris-ui-account-validation' : (api.attributes.upstream_url.includes('iris'))? 'iris-ui-api' : 'iris-ui';
+  }
+  if (api.attributes.upstream_url.includes('wallstreet')) {
+    _name = (api.attributes.upstream_url.includes('payouts'))? 'wallstreet-merchant-payouts' : 'wallstreet';
+    _name = (api.attributes.upstream_url.includes('billings'))? 'wallstreet-merchant-billings' : 'wallstreet';
+  }
+  if (api.attributes.upstream_url.includes('nexus')) {
+    _name = (api.attributes.upstream_url.includes('api'))? 'nexus-api' : 'nexus';
+  }
   if (api.attributes.upstream_url.includes('ex-pegasus')) _name = 'ex-pegasus';
   if (!_name) {
     console.error(api.attributes.upstream_url);
@@ -117,6 +132,14 @@ output.routes = config.apis.map(api => {
   const rba_port = 443;
   const promo_host = 'promo-app-consul.stg.veritrans.co.id';
   const promo_port = 443;
+
+  // const phoenix_host = 'phoenix-consul.mid.veritrans.co.id';
+  // const papi_host = 'payment-api-consul.mid.veritrans.co.id';
+  // const snap_host = 'midtrans-checkout.mid.veritrans.co.id';
+  // const rba_host = 'promo-app-consul.mid.veritrans.co.id';
+  // const rba_port = 443;
+  // const promo_host = 'promo-app-consul.mid.veritrans.co.id';
+  // const promo_port = 443;
 
   return {
     plugins: _plugins.map(p => {
