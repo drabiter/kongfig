@@ -16,6 +16,20 @@ export default ({host, https, ignoreConsumers, cache}) => {
     });
 }
 
+export const fetchOauth2 = ({host, https}) => {
+  const router = createRouter(host, https);
+
+  const res = getPaginatedJson(router({name: 'oauth2-tokens'}));
+  return res;
+};
+
+export const fetchOauthClient = ({host, https, id}) => {
+  const router = createRouter(host, https);
+
+  const res = getPaginatedJson(router({name: 'muffin-client', params: {id}}));
+  return res;
+};
+
 function createApi({ router, getPaginatedJson, ignoreConsumers }) {
     return {
         router,

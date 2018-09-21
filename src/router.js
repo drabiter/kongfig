@@ -32,6 +32,9 @@ export default function createRouter(host, https) {
             case 'certificate-snis': return `${adminApiRoot}/snis/`;
             case 'certificate-sni': return `${adminApiRoot}/snis/${params.sniName}`;
 
+            case 'oauth2-tokens': return `${adminApiRoot}/oauth2_tokens`;
+            case 'muffin-client': return `${adminApiRoot}/consumers/muffin/oauth2/${params.id}`;
+
             case 'root': return `${adminApiRoot}`;
 
             default:

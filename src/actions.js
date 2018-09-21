@@ -185,3 +185,12 @@ export function removeConsumerAcls(consumerId, aclId) {
         method: 'DELETE'
     };
 }
+
+export function migrateOauth2Token(params) {
+    return {
+        type: 'migrate-oauth2-token',
+        endpoint: {name: 'oauth2-tokens'},
+        method: 'POST',
+        body: params
+    };
+};
