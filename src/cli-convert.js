@@ -8,6 +8,7 @@ import {repeatableOptionCallback} from './utils';
 import { screenLogger } from './logger';
 import {addSchemasFromOptions, addSchemasFromConfig} from './consumerCredentials';
 import {pretty} from './prettyConfig';
+import yaml from 'js-yaml';
 
 program
     .version(require("../package.json").version)
@@ -34,7 +35,8 @@ try{
 
 console.log(`Loading config ${program.path}`);
 
-let config = configLoader(program.path);
+// let config = configLoader(program.path);
+let config = yaml.safeLoad(configLoader(program.path).data["midplaza.yaml"]);
 let host = program.host || config.host || 'localhost:8001';
 let https = program.https || config.https || false;
 let ignoreConsumers = program.ignoreConsumers || !config.consumers || config.consumers.length === 0 || false;
@@ -79,6 +81,15 @@ output.plugins = config.plugins.map(p => {
 output.services = config.services;
 output.routes = config.apis.map(api => {
   let _name = undefined;
+  if (api.attributes.upstream_url.includes('account.midtrans')) {
+    _name = 'account';
+  }
+  if (api.attributes.upstream_url.includes('muffin-consul')) {
+    _name = 'DELETEME';
+  }
+  if (api.attributes.upstream_url.includes('athena-api')) {
+    _name = 'athena-api-callback';
+  }
   if (api.attributes.upstream_url.includes('hermes')) {
     _name = (api.attributes.upstream_url.includes('merchants'))? 'hermes-merchant' : 'hermes';
     _name = (api.attributes.upstream_url.includes('api'))? 'hermes-api' : 'hermes';
@@ -118,6 +129,7 @@ output.routes = config.apis.map(api => {
     _name = (api.attributes.upstream_url.includes('api'))? 'nexus-api' : 'nexus';
   }
   if (api.attributes.upstream_url.includes('ex-pegasus')) _name = 'ex-pegasus';
+
   if (!_name) {
     console.error(api.attributes.upstream_url);
     process.exit(1);
@@ -125,21 +137,21 @@ output.routes = config.apis.map(api => {
 
   let _plugins = api.plugins || [];
 
-  const phoenix_host = 'phoenix-consul.stg.veritrans.co.id';
-  const papi_host = 'payment-api-consul.stg.veritrans.co.id';
-  const snap_host = 'midtrans-checkout.stg.veritrans.co.id';
-  const rba_host = 'promo-app-consul.stg.veritrans.co.id';
-  const rba_port = 443;
-  const promo_host = 'promo-app-consul.stg.veritrans.co.id';
-  const promo_port = 443;
-
-  // const phoenix_host = 'phoenix-consul.mid.veritrans.co.id';
-  // const papi_host = 'payment-api-consul.mid.veritrans.co.id';
-  // const snap_host = 'midtrans-checkout.mid.veritrans.co.id';
-  // const rba_host = 'promo-app-consul.mid.veritrans.co.id';
+  // const phoenix_host = 'phoenix-consul.stg.veritrans.co.id';
+  // const papi_host = 'payment-api-consul.stg.veritrans.co.id';
+  // const snap_host = 'midtrans-checkout.stg.veritrans.co.id';
+  // const rba_host = 'promo-app-consul.stg.veritrans.co.id';
   // const rba_port = 443;
-  // const promo_host = 'promo-app-consul.mid.veritrans.co.id';
+  // const promo_host = 'promo-app-consul.stg.veritrans.co.id';
   // const promo_port = 443;
+
+  const phoenix_host = 'phoenix-consul.mid.veritrans.co.id';
+  const papi_host = 'payment-api-consul.mid.veritrans.co.id';
+  const snap_host = 'midtrans-checkout.mid.veritrans.co.id';
+  const rba_host = 'promo-app-consul.mid.veritrans.co.id';
+  const rba_port = 443;
+  const promo_host = 'promo-app-consul.mid.veritrans.co.id';
+  const promo_port = 443;
 
   return {
     plugins: _plugins.map(p => {
@@ -275,7 +287,7 @@ output.routes = config.apis.map(api => {
       preserve_host: api.attributes.preserve_host,
       paths: [api.attributes.request_path].filter(p => p != null),
       hosts: [api.attributes.request_host].filter(h => h != null),
-      methods: [api.attributes.request_host].filter(h => h != null),
+      methods: [],
       strip_path: api.attributes.strip_request_path
     }
   };
