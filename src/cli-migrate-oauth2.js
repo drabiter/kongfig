@@ -52,8 +52,10 @@ fetchOauth2({ host: program.source, https: program.https})
                                 body: JSON.stringify(params.body)
                             })
                             .then(resp => {
-                                if (resp.status == 201 || resp.status == 409) {
+                                if (resp.status == 201) {
                                     console.log(`${r.id} ${c1.client_id} migrated\n\n`);
+                                } else if (resp.status == 409) {
+                                    console.log(`${r.id} ${c1.client_id} existed\n\n`);
                                 } else {
                                     console.log(`${r.id} ${c1.client_id} got ${resp.status}\n\n`);
                                 }
